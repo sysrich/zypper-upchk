@@ -1,0 +1,116 @@
+#!/bin/bash
+#
+# zypper-upchk - generic zypper subcommand to check for updates
+#
+# Author: Richard Brown <rbrown@suse.com>
+# Copyright (C) 2018 SUSE Linux GmbH
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+DO_ANALYZE="1"
+UPDATE_CMD=""
+USE_SALT_GRAINS=0
+IS_KUBIC=0
+
+usage() {
+    echo "Usage: zypper upchk [command]"
+    echo "       dup                      Check for available distribution upgrades"
+    echo "       up                       Check for available package upgrades"
+    echo "       salt                     Automatic check, results as salt grains in /etc/salt/grains"
+    echo "   -h, --help                   Help"
+    exit $1
+}
+
+if [ $# -eq 0 ]; then
+    DO_ANALYZE=1
+fi
+
+while [ 1 ]; do
+    if [ $# -eq 0 ]; then
+  break
+    fi
+
+    case "$1" in
+      dup)
+        DO_ANALYZE=0
+        UPDATE_CMD="dup"
+        shift
+        ;;
+      up)
+        DO_ANALYZE=0
+        UPDATE_CMD="up"
+        shift
+        ;;
+      salt)
+        USE_SALT_GRAINS=1
+        shift
+        ;;
+      -h|--help)
+        usage 0
+        ;;
+      *)
+        if [ $# -ge 1 ]; then
+          usage 1;
+        fi
+        ;;
+    esac
+done
+
+if [ $# -ne 0 ]; then
+    usage 1;
+fi
+
+if [ "$EUID" -ne 0 ]
+  then echo -e "\e[31mRoot privileges are required to check for updates\e[0m"
+  exit
+fi
+
+# Analyse Sub
+if [ ${DO_ANALYZE} -eq 1 ]; then
+  . /etc/os-release
+  if [[ "${ID}" == *caasp* ]] || [[ "${ID}" == *kubic* ]]; then
+    IS_KUBIC=1
+    UPDATE_CMD="dup"
+  elif [ "${NAME}" == "openSUSE Tumbleweed" ]; then
+    UPDATE_CMD="dup"
+  else
+    UPDATE_CMD="up"
+  fi
+
+  if [ ${IS_KUBIC} -eq 1 ]; then
+    # Check filesystem is correctly configured readonly
+    if ! btrfs property get / | grep -q ro=true ; then
+      echo -e "\e[31mERROR: btrfs root volume not configured properly\e[0m"
+      echo "Please set btrfs property set / ro=true"
+      exit 1
+    fi
+    if ! grep "/ btrfs ro" /proc/mounts ; then
+      echo -e "\e[31mERROR: root filesystem not mounted read-only\e[0m"
+      exit 1
+    fi
+  fi
+
+fi
+
+# dup/up check
+# TODO: if 'salt' then write out grains
+if [ -n "${UPDATE_CMD}" ]; then
+  zypper -n ${UPDATE_CMD} --dry-run | grep --colour=never "packages to upgrade"
+fi
+
+# mig check
+# TODO: If no updates, then check for new products (if applicable)
+
+# auto-update
+# TODO: if user picks auto-update function, automatically run appropriate update command
