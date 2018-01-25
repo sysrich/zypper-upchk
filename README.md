@@ -15,8 +15,7 @@ Report back:
 
 Use cases:
 * CLI tool for sysadmin
-* systemd triggered
-* salt triggered/salt parsing results from systemd triggered
+* systemd triggered, with salt grains for velum to parse
 
 # Long Term Goals
 
