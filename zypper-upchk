@@ -24,11 +24,18 @@ USE_SALT_GRAINS=0
 IS_KUBIC=0
 
 usage() {
-    echo "Usage: zypper upchk [command]"
+    echo "Usage: zypper upchk [dup|up] [OPTIONS]"
+    echo ""
+    echo "Displays stats about applicable updates. By default autodetects whether to use 'dup' or 'up' commands."
+    echo ""
+    echo "Commands:"
     echo "       dup                      Check for available distribution upgrades"
     echo "       up                       Check for available package upgrades"
-    echo "       salt                     Automatic check, results as salt grains in /etc/salt/grains"
+    echo ""
+    echo "Options:"
+    echo "       --salt                   Also store results as salt grains in /etc/salt/grains"
     echo "   -h, --help                   Help"
+    echo ""
     exit $1
 }
 
@@ -106,7 +113,7 @@ fi
 # dup/up check
 # TODO: if 'salt' then write out grains
 if [ -n "${UPDATE_CMD}" ]; then
-  zypper -n ${UPDATE_CMD} --dry-run | grep --colour=never "packages to upgrade"
+  zypper --no-gpg-checks -n ${UPDATE_CMD} --dry-run | grep --colour=never "packages to upgrade"
 fi
 
 # mig check
